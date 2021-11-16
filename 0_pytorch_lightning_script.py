@@ -10,10 +10,12 @@ from pl_bolts.datamodules import CIFAR10DataModule
 from pl_bolts.transforms.dataset_normalizations import cifar10_normalization
 from pytorch_lightning import LightningModule, seed_everything, Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, MLFlowLogger
 from torch.optim.lr_scheduler import OneCycleLR
 from torch.optim.swa_utils import AveragedModel, update_bn
 from torchmetrics.functional import accuracy
+import fsspec
+import os
 
 seed_everything(7)
 
@@ -22,8 +24,7 @@ AVAIL_GPUS = min(1, torch.cuda.device_count())
 BATCH_SIZE = 256 if AVAIL_GPUS else 64
 NUM_WORKERS = int(os.cpu_count() / 2)
 
-import fsspec
-import os
+#### Setup Logging
 
 minio_url = 'http://' + os.environ['MINIO_ENDPOINT'] + ':' + os.environ['MINIO_PORT']
 
@@ -33,6 +34,17 @@ fsspec.config.conf['s3'] = {'anon': False,
                            'client_kwargs':{
                                'endpoint_url': minio_url,
                            }}
+
+tf_logger = TensorBoardLogger('s3://dl-logs/test-model/', name='resnet')
+
+mlflow_tracker_url = 'http://mlflow-service.mlflow.svc.cluster.local:5000'
+
+mlflow_logger = MLFlowLogger(experiment_name='test-model', 
+                             tracking_uri=mlflow_tracker_url)
+
+
+############ Transformations ########################
+
 
 train_transforms = torchvision.transforms.Compose([
     torchvision.transforms.RandomCrop(32, padding=4),
@@ -125,7 +137,7 @@ trainer = Trainer(
     gpus=AVAIL_GPUS,
     #gpus=[0],
     accelerator='ddp',
-    logger=TensorBoardLogger('s3://dl-logs/test-model/', name='resnet'),
+    logger=[tf_logger, mlflow_logger],
     callbacks=[LearningRateMonitor(logging_interval='step')],
 )
 
