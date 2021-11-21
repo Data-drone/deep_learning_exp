@@ -1,6 +1,14 @@
 # Scaling Deep Learning
 
-A learning repo on scaling deep learning
+A learning repo on scaling deep learning.
+
+## Goals
+
+- To be able to measure perf of Dataloaders and Algo
+- To show how to parallelise across nodes and GPUs
+- To look at how to build useful backtesting primatives for:
+  - Change in Dataset
+  - New Model 
 
 ## A First Notebook
 
