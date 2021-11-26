@@ -29,3 +29,5 @@ Dataset structure is important to make sure we make optimal use of GPUs.
 - Pytorch doesn't play nice by default with objectstores
 - See: webdataset and the videos on this channel for details:
   - https://www.youtube.com/channel/UCzP3yTgqIiwHC_WN6at7KVQ
+- webdataset is a designed to batch up the dataset into tarfiles, one batch per tarfile
+  - How do we make it adaptable with to different batchsizes  
