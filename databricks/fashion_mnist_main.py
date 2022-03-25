@@ -1,29 +1,37 @@
+#####
+#
+# This main loop is intended to be run inside of databricks
+# ddp mode isn't supported in interactive mode so is run via %sh
+# running via %sh requires that a terminal session is started and databricks cli configured
+# running via %sh won't log the code against the notebook
+
 import torch
 import pytorch_lightning as pl
 from pl_bolts.datamodules import FashionMNISTDataModule
-from model_test import LitFashionMNIST
+from models.model_test import LitFashionMNIST
 
 # do tensorboard profiling
 import torch.profiler
-
-
-BATCH_SIZE = 256
-AVAIL_GPUS = max(1, torch.cuda.device_count())
-AVAIL_GPUS
 
 # Adding mlflow
 import mlflow.pytorch
 from mlflow.tracking import MlflowClient
 
+### Set config flags
+EPOCHS = 5
+BATCH_SIZE = 256
+AVAIL_GPUS = max(1, torch.cuda.device_count())
+
 root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
 data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
 RUN_NAME = 'pl_test'
-
+experiment_id = 4388967990215332
+run_name = 'basic_fashionMNIST'
 
 #dbutils.fs.mkdirs(data_path)
 
-# greater than one worker results in things hanging 0 or 1 works
+# greater than one worker can result in things hanging 0 or 1 works
 data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
 
 # initialize model
@@ -60,8 +68,9 @@ profiler = PyTorchProfiler(
     profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
     with_stack=True)
 
+# main pytorch lightning trainer
 trainer = pl.Trainer(
-    max_epochs=20,
+    max_epochs=EPOCHS,
     log_every_n_steps=100,
     gpus=AVAIL_GPUS,
     callbacks=callbacks,
@@ -71,6 +80,5 @@ trainer = pl.Trainer(
     #profiler=profiler # for tensorboard profiler
 )
 # Pass the datamodule as arg to trainer.fit to override model hooks :)
-with mlflow.start_run(experiment_id=4388967990215332, run_name='basic_fashionMNIST') as run:
+with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
   trainer.fit(model, data_module)
-
