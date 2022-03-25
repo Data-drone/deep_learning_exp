@@ -15,12 +15,13 @@ AVAIL_GPUS
 import mlflow.pytorch
 from mlflow.tracking import MlflowClient
 
+root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
 data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
 RUN_NAME = 'pl_test'
 
 
-dbutils.fs.mkdirs(data_path)
+#dbutils.fs.mkdirs(data_path)
 
 # greater than one worker results in things hanging 0 or 1 works
 data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
@@ -29,7 +30,8 @@ data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
 model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
 
 # start mlflow
-mlflow.pytorch.autolog()
+## manually trigger log models later as there seems to be a pickling area with logging the model
+mlflow.pytorch.autolog(log_models=False)
 
 # Loggers
 loggers = []
@@ -59,15 +61,16 @@ profiler = PyTorchProfiler(
     with_stack=True)
 
 trainer = pl.Trainer(
-    max_epochs=3,
-    log_every_n_steps=1,
+    max_epochs=20,
+    log_every_n_steps=100,
     gpus=AVAIL_GPUS,
     callbacks=callbacks,
     logger=loggers,
-    strategy='ddp'
+    strategy='ddp',
+    default_root_dir=root_dir #otherwise pytorch lightning will write to local
     #profiler=profiler # for tensorboard profiler
 )
 # Pass the datamodule as arg to trainer.fit to override model hooks :)
-with mlflow.start_run(run_name='basic_fashionMNIST') as run:
+with mlflow.start_run(experiment_id=4388967990215332, run_name='basic_fashionMNIST') as run:
   trainer.fit(model, data_module)
 
