@@ -8,7 +8,7 @@
 import torch
 import pytorch_lightning as pl
 from pl_bolts.datamodules import FashionMNISTDataModule
-from models.model_test import LitFashionMNIST
+from fashion_mnist_basic.model_test import LitFashionMNIST
 
 # do tensorboard profiling
 import torch.profiler
@@ -20,6 +20,10 @@ from mlflow.tracking import MlflowClient
 # pytorch profiling
 from pytorch_lightning.profiler import PyTorchProfiler
 import os
+
+# spark horovod
+from sparkdl import HorovodRunner
+
 
 ### Set config flags
 EPOCHS = 5
