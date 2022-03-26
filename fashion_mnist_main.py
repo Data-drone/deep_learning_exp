@@ -8,7 +8,7 @@
 import torch
 import pytorch_lightning as pl
 from pl_bolts.datamodules import FashionMNISTDataModule
-from fashion_mnist_basic.model_test import LitFashionMNIST
+from models.fashion_mnist_basic import LitFashionMNIST
 
 # do tensorboard profiling
 import torch.profiler
@@ -102,4 +102,4 @@ def main_train(data_dir:str):
 
 if __name__ == '__main__':
 
-    main_train()
+    main_train(data_path)
