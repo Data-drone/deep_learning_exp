@@ -42,10 +42,10 @@ def main_hvd():
 
     hvd.init()
 
-    return main_train(data_dir=data_path, num_gpus=1)
+    return main_train(data_dir=data_path, num_gpus=1, node_id=hvd.rank())
 
 
-def main_train(data_dir:str, num_gpus:int):
+def main_train(data_dir:str, num_gpus:int, node_id:int=0):
 
     """
     Main training Loop
@@ -65,7 +65,8 @@ def main_train(data_dir:str, num_gpus:int):
 
     # start mlflow
     ## manually trigger log models later as there seems to be a pickling area with logging the model
-    mlflow.pytorch.autolog(log_models=False)
+    if node_id==0:
+        mlflow.pytorch.autolog(log_models=False)
 
     # Loggers
     loggers = []
@@ -104,8 +105,12 @@ def main_train(data_dir:str, num_gpus:int):
         #profiler=profiler # for tensorboard profiler
     )
     # Pass the datamodule as arg to trainer.fit to override model hooks :)
-    with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
-      trainer.fit(model, data_module)
+    if node_id == 0:
+        with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
+            trainer.fit(model, data_module)
+    else:
+        trainer.fit(model, data_module)
+
 
 if __name__ == '__main__':
 
