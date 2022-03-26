@@ -23,7 +23,7 @@ import os
 
 # spark horovod
 from sparkdl import HorovodRunner
-
+import horovod.torch as hvd
 
 ### Set config flags
 EPOCHS = 5
@@ -39,6 +39,8 @@ run_name = 'basic_fashionMNIST'
 
 
 def main_hvd():
+
+    hvd.init()
 
     return main_train(data_dir=data_path, num_gpus=1)
 
