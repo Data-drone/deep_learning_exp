@@ -38,7 +38,12 @@ experiment_id = 4388967990215332
 run_name = 'basic_fashionMNIST'
 
 
-def main_train(data_dir:str):
+def main_hvd():
+
+    return main_train(data_dir=data_path, num_gpus=1)
+
+
+def main_train(data_dir:str, num_gpus:int):
 
     """
     Main training Loop
@@ -89,7 +94,7 @@ def main_train(data_dir:str):
     trainer = pl.Trainer(
         max_epochs=EPOCHS,
         log_every_n_steps=100,
-        gpus=AVAIL_GPUS,
+        gpus=num_gpus,
         callbacks=callbacks,
         logger=loggers,
         strategy='ddp',
@@ -102,4 +107,8 @@ def main_train(data_dir:str):
 
 if __name__ == '__main__':
 
-    main_train(data_path)
+    #main_train(data_path, AVAIL_GPUS)
+
+    hr = HorovodRunner(np=2, driver_log_verbosity='all')
+
+    model = hr.run(main_hvd())
