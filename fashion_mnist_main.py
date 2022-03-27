@@ -38,9 +38,22 @@ experiment_id = 4388967990215332
 run_name = 'basic_fashionMNIST'
 
 
-def main_hvd():
+def main_hvd(mlflow_db_host:str, mlflow_db_token:str):
+
+    """
+    
+    Args:
+        mlflow_db_host: 
+        mlflow_db_token: 
+    
+    """
 
     hvd.init()
+
+    # mlflow workaround
+    mlflow.set_tracking_uri("databricks")
+    os.environ['DATABRICKS_HOST'] = mlflow_db_host
+    os.environ['DATABRICKS_TOKEN'] = mlflow_db_token
 
     return main_train(data_dir=data_path, num_gpus=1, node_id=hvd.rank())
 
