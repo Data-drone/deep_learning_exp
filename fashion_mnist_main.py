@@ -28,17 +28,18 @@ import horovod.torch as hvd
 ### Set config flags
 EPOCHS = 5
 BATCH_SIZE = 256
-AVAIL_GPUS = max(1, torch.cuda.device_count())
+# this will just count the driver I believe
+AVAIL_GPUS = max(1, torch.cuda.device_count()) 
 
 root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
-data_path = '/dbfs/user/brian.law/data/fashionMNIST'
+#data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
 RUN_NAME = 'pl_test'
 experiment_id = 4388967990215332
 run_name = 'basic_fashionMNIST'
 
 
-def main_hvd(mlflow_db_host:str, mlflow_db_token:str):
+def main_hvd(mlflow_db_host:str, mlflow_db_token:str, data_module, model):
 
     """
     
@@ -55,26 +56,28 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str):
     os.environ['DATABRICKS_HOST'] = mlflow_db_host
     os.environ['DATABRICKS_TOKEN'] = mlflow_db_token
 
-    return main_train(data_dir=data_path, num_gpus=1, node_id=hvd.rank())
+    return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank())
 
 
-def main_train(data_dir:str, num_gpus:int, node_id:int=0):
+def main_train(data_module, model, num_gpus:int, strat:str='ddp', node_id:int=0):
 
     """
     Main training Loop
 
     Args:
-        data_dir: training directory
-    
+        data_dir: data module to fit in
+        strat: training strategy for parallel
+        num_gpus: number of gpus to train on
+        node_id: the number of the node
     
     """
 
 
     # greater than one worker can result in things hanging 0 or 1 works
-    data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
+    #data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
 
     # initialize model
-    model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
+    #model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
 
     # start mlflow
     ## manually trigger log models later as there seems to be a pickling area with logging the model
@@ -113,7 +116,7 @@ def main_train(data_dir:str, num_gpus:int, node_id:int=0):
         gpus=num_gpus,
         callbacks=callbacks,
         logger=loggers,
-        strategy='ddp',
+        strategy=strat,
         default_root_dir=root_dir #otherwise pytorch lightning will write to local
         #profiler=profiler # for tensorboard profiler
     )
