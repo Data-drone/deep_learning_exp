@@ -62,7 +62,7 @@ import horovod.spark
 # set to the number of workers * ?num gpu per worker?
 num_processes = 4
 
-model = horovod.spark.run(main_hvd, args=(data_module, model, databricks_host, databricks_token, ), num_proc=4, verbose=2)
+model = horovod.spark.run(main_hvd, args=(databricks_host, databricks_token, data_module, model,), num_proc=4, verbose=2)
 
 # COMMAND ----------
 
