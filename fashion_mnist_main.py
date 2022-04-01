@@ -7,8 +7,6 @@
 
 import torch
 import pytorch_lightning as pl
-from pl_bolts.datamodules import FashionMNISTDataModule
-from models.fashion_mnist_basic import LitFashionMNIST
 
 # do tensorboard profiling
 import torch.profiler
@@ -72,17 +70,12 @@ def main_train(data_module, model, num_gpus:int, strat:str='ddp', node_id:int=0)
     
     """
 
-
-    # greater than one worker can result in things hanging 0 or 1 works
-    #data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
-
-    # initialize model
-    #model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
-
     # start mlflow
     ## manually trigger log models later as there seems to be a pickling area with logging the model
     if node_id==0:
         mlflow.pytorch.autolog(log_models=False)
+
+        mlflow.log_param("model", model.model_tag)
 
     # Loggers
     loggers = []
@@ -124,9 +117,14 @@ def main_train(data_module, model, num_gpus:int, strat:str='ddp', node_id:int=0)
     if node_id == 0:
         with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
             trainer.fit(model, data_module)
+
+            # log model
+            mlflow.pytorch.log_model(model, "models")
+
     else:
         trainer.fit(model, data_module)
 
+    
 
 if __name__ == '__main__':
 
