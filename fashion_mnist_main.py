@@ -79,8 +79,6 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
     if node_id==0:
         mlflow.pytorch.autolog(log_models=False)
 
-        mlflow.log_param("model", model.model_tag)
-
     # Loggers
     loggers = []
     tb_logger = pl.loggers.tensorboard.TensorBoardLogger(save_dir=experiment_log_dir, name=RUN_NAME,log_graph=True)
@@ -120,6 +118,9 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
     # Pass the datamodule as arg to trainer.fit to override model hooks :)
     if node_id == 0:
         with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
+            
+            mlflow.log_param("model", model.model_tag)
+
             trainer.fit(model, data_module)
 
             # log model
