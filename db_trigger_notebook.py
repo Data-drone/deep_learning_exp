@@ -49,6 +49,10 @@ data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
 # initialize model
 model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
 
+# COMMAND ----------
+from models.resnet_basic import ResnetClassification
+
+model = ResnetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
 
 # COMMAND ----------
 

@@ -7,6 +7,8 @@
 
 import torch
 import pytorch_lightning as pl
+from pytorch_lightning import LightningDataModule, LightningModule
+from typing import Type
 
 # do tensorboard profiling
 import torch.profiler
@@ -37,7 +39,8 @@ experiment_id = 4388967990215332
 run_name = 'basic_fashionMNIST'
 
 
-def main_hvd(mlflow_db_host:str, mlflow_db_token:str, data_module, model):
+def main_hvd(mlflow_db_host:str, mlflow_db_token:str, 
+            data_module:Type[LightningDataModule], model:Type[LightningModule]):
 
     """
     
@@ -57,7 +60,8 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str, data_module, model):
     return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank())
 
 
-def main_train(data_module, model, num_gpus:int, strat:str='ddp', node_id:int=0):
+def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
+                num_gpus:int, strat:str='ddp', node_id:int=0):
 
     """
     Main training Loop
