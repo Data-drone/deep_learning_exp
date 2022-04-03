@@ -1,40 +1,42 @@
 import torch
+import timm
 from torch import nn
 import torch.nn.functional as F
 from torchmetrics.functional import accuracy
 
 import pytorch_lightning as pl
 import torchvision.models as models
+import timm
 
 
-# TODO add a pickle thing to serialise weights when we are pretraining
-# we do not seem to need to - verify by deploying model
+## still need to verify
 
-class ResnetClassification(pl.LightningModule):
-    def __init__(self, channels, width, height, num_classes, pretrain:bool=True, learning_rate=2e-4):
+class TimmEfficientNetClassification(pl.LightningModule):
+
+    def __init__(self, channels, width, height, num_classes, 
+                pretrain:bool=True, learning_rate=2e-4):
+        
         super().__init__()
+        
         self.channels = channels
         self.width = width
         self.height = height
         self.num_classes = num_classes
         self.learning_rate = learning_rate
 
-        
-        self.model_tag = 'resnet'
+        self.model_tag = 'efficientnet'
 
-        self.model = models.resnet18(pretrained=pretrain)
+        self.model = timm.create_model('efficientnetv2_rw_t', pretrained=pretrain)
 
-        ### TRANSFER LEARNING STEPS
-        # change the final layer
+        ## transfer learning
         linear_size = list(self.model.children())[-1].in_features
-        self.model.fc = nn.Linear(linear_size, self.num_classes)
+        self.model.classifier = nn.Linear(linear_size, self.num_classes)
 
         # change the input channels as needed
         if self.channels != 3:
-            self.model.conv1 = nn.Conv2d(self.channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        ### END TRANSFER LEARNING STEPS
+            self.model.conv_stem = nn.Conv2d(1, 24, kernel_size=7, stride=2, padding=3, bias=False)
 
-
+        
     def forward(self, x):
         x = self.model(x)
         return x
