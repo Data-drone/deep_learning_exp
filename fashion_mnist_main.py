@@ -33,14 +33,14 @@ AVAIL_GPUS = max(1, torch.cuda.device_count())
 
 root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
 #data_path = '/dbfs/user/brian.law/data/fashionMNIST'
-experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
+#experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
 RUN_NAME = 'pl_test'
 experiment_id = 4388967990215332
 run_name = 'basic_fashionMNIST'
 
 
 def main_hvd(mlflow_db_host:str, mlflow_db_token:str, 
-            data_module:Type[LightningDataModule], model:Type[LightningModule]):
+            data_module:Type[LightningDataModule], model:Type[LightningModule], experiment_log_dir):
 
     """
     
@@ -57,11 +57,12 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
     os.environ['DATABRICKS_HOST'] = mlflow_db_host
     os.environ['DATABRICKS_TOKEN'] = mlflow_db_token
 
-    return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank())
+    return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank(), 
+                    experiment_log_dir=experiment_log_dir)
 
 
 def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
-                num_gpus:int, strat:str='ddp', node_id:int=0):
+                num_gpus:int, experiment_log_dir:str, strat:str='ddp', node_id:int=0):
 
     """
     Main training Loop

@@ -25,6 +25,21 @@ os.environ['DATABRICKS_TOKEN'] = databricks_token
 # setup env
 fashion_data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 cifar_data_path = '/dbfs/user/brian.law/data/cifar10'
+log_dir = '/dbfs/user/brian.law/pl_logs'
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Tensorboard Initialisation
+
+# COMMAND ----------
+
+%load_ext tensorboard
+experiment_log_dir = log_dir
+
+# COMMAND ----------
+
+%tensorboard --logdir $experiment_log_dir
 
 # COMMAND ----------
 
