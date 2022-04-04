@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Testing Running notebooks
+# MAGIC # Scaling up Deep Learning
 
 # COMMAND ----------
 
@@ -8,23 +8,9 @@
 
 # COMMAND ----------
 
-# MAGIC %sh 
-# MAGIC 
-# MAGIC python fashion_mnist_main.py
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC 
-# MAGIC $DB_DRIVER_IP
-
-# COMMAND ----------
-
 from sparkdl import HorovodRunner
 import horovod.torch as hvd
 from fashion_mnist_main import main_hvd
-from pl_bolts.datamodules import FashionMNISTDataModule
-from models.fashion_mnist_basic import LitFashionMNIST
 import os
 
 # COMMAND ----------
@@ -37,21 +23,27 @@ os.environ['DATABRICKS_HOST'] = databricks_host
 os.environ['DATABRICKS_TOKEN'] = databricks_token
 
 # setup env
-data_path = '/dbfs/user/brian.law/data/fashionMNIST'
+fashion_data_path = '/dbfs/user/brian.law/data/fashionMNIST'
+cifar_data_path = '/dbfs/user/brian.law/data/cifar10'
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Image Classification
 
 # COMMAND ----------
 
 # setup the experiment
+from pl_bolts.datamodules import FashionMNISTDataModule, CIFAR10DataModule
+from models.fashion_mnist_basic import LitFashionMNIST
+from models.resnet_basic import ResnetClassification
 
 # greater than one worker can result in things hanging 0 or 1 works
-data_module = FashionMNISTDataModule(data_dir=data_path, num_workers=4)
+data_module = FashionMNISTDataModule(data_dir=fashion_data_path, num_workers=4)
+data_module = CIFAR10DataModule(data_dir=cifar_data_path, num_workers=4)
 
 # initialize model
 model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
-
-# COMMAND ----------
-from models.resnet_basic import ResnetClassification
-
 model = ResnetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
 
 # COMMAND ----------
