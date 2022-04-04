@@ -28,6 +28,7 @@ cifar_data_path = '/dbfs/user/brian.law/data/cifar10'
 log_dir = '/dbfs/user/brian.law/pl_logs'
 
 batch_size = 512
+epochs=50
 
 # COMMAND ----------
 
@@ -76,7 +77,7 @@ import horovod.spark
 # set to the number of workers * ?num gpu per worker?
 num_processes = 2
 
-model = horovod.spark.run(main_hvd, args=(databricks_host, databricks_token, data_module, model, log_dir,), 
+model = horovod.spark.run(main_hvd, args=(databricks_host, databricks_token, data_module, model, log_dir, epochs), 
                             num_proc=num_processes, verbose=2)
 
 # COMMAND ----------
