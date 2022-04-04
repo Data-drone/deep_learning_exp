@@ -26,8 +26,8 @@ from sparkdl import HorovodRunner
 import horovod.torch as hvd
 
 ### Set config flags
-EPOCHS = 5
-BATCH_SIZE = 256
+#EPOCHS = 5
+#BATCH_SIZE = 256
 # this will just count the driver I believe
 AVAIL_GPUS = max(1, torch.cuda.device_count()) 
 
@@ -40,7 +40,7 @@ run_name = 'basic_fashionMNIST'
 
 
 def main_hvd(mlflow_db_host:str, mlflow_db_token:str, 
-            data_module:Type[LightningDataModule], model:Type[LightningModule], experiment_log_dir):
+            data_module:Type[LightningDataModule], model:Type[LightningModule], experiment_log_dir, epochs):
 
     """
     
@@ -58,11 +58,11 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
     os.environ['DATABRICKS_TOKEN'] = mlflow_db_token
 
     return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank(), 
-                    experiment_log_dir=experiment_log_dir)
+                    experiment_log_dir=experiment_log_dir, epoch=epochs)
 
 
 def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
-                num_gpus:int, experiment_log_dir:str, strat:str='ddp', node_id:int=0):
+                num_gpus:int, experiment_log_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0):
 
     """
     Main training Loop
@@ -107,12 +107,13 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
 
     # main pytorch lightning trainer
     trainer = pl.Trainer(
-        max_epochs=EPOCHS,
+        max_epochs=epoch,
         log_every_n_steps=100,
         gpus=num_gpus,
         callbacks=callbacks,
         logger=loggers,
         strategy=strat,
+        profiler=profiler,
         default_root_dir=root_dir #otherwise pytorch lightning will write to local
         #profiler=profiler # for tensorboard profiler
     )

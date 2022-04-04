@@ -27,6 +27,8 @@ fashion_data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 cifar_data_path = '/dbfs/user/brian.law/data/cifar10'
 log_dir = '/dbfs/user/brian.law/pl_logs'
 
+batch_size = 512
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -52,15 +54,16 @@ experiment_log_dir = log_dir
 from pl_bolts.datamodules import FashionMNISTDataModule, CIFAR10DataModule
 from models.fashion_mnist_basic import LitFashionMNIST
 from models.resnet_basic import ResnetClassification
+from models.timm_model import TimmEfficientNetClassification
 
 # greater than one worker can result in things hanging 0 or 1 works
-data_module = FashionMNISTDataModule(data_dir=fashion_data_path, num_workers=4)
-data_module = CIFAR10DataModule(data_dir=cifar_data_path, num_workers=4)
+data_module = FashionMNISTDataModule(data_dir=fashion_data_path, num_workers=4, batch_size=batch_size)
+data_module = CIFAR10DataModule(data_dir=cifar_data_path, num_workers=4, batch_size=batch_size)
 
 # initialize model
 model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
 model = ResnetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
-
+model = TimmEfficientNetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
 # COMMAND ----------
 
 # set np to number of gpus
@@ -71,9 +74,9 @@ model = ResnetClassification(*data_module.size(), data_module.num_classes, pretr
 import horovod.spark 
 
 # set to the number of workers * ?num gpu per worker?
-num_processes = 4
+num_processes = 2
 
-model = horovod.spark.run(main_hvd, args=(databricks_host, databricks_token, data_module, model,), 
+model = horovod.spark.run(main_hvd, args=(databricks_host, databricks_token, data_module, model, log_dir,), 
                             num_proc=num_processes, verbose=2)
 
 # COMMAND ----------
