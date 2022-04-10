@@ -25,6 +25,7 @@ os.environ['DATABRICKS_TOKEN'] = databricks_token
 # setup env
 fashion_data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 cifar_data_path = '/dbfs/user/brian.law/data/cifar10'
+voc_data_path = '/dbfs/user/brian.law/data/VOC'
 log_dir = '/dbfs/user/brian.law/pl_logs'
 
 batch_size = 512
@@ -65,6 +66,21 @@ data_module = CIFAR10DataModule(data_dir=cifar_data_path, num_workers=4, batch_s
 model = LitFashionMNIST(*data_module.size(), data_module.num_classes)
 model = ResnetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
 model = TimmEfficientNetClassification(*data_module.size(), data_module.num_classes, pretrain=True)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Object Detection
+
+# COMMAND ----------
+from pl_bolts.datamodules import VOCDetectionDataModule
+from pl_bolts.models import FasterRCNN
+
+data_module = VOCDetectionDataModule(data_dir=voc_data_path, num_workers=4, batch_size=batch_size)
+
+# initialise model
+model = FasterRCNN(*data_module.size(), data_module.num_classes)
+
 # COMMAND ----------
 
 # set np to number of gpus
