@@ -12,6 +12,8 @@ from typing import Type
 
 # do tensorboard profiling
 import torch.profiler
+# log hardware stats
+from pytorch_lightning.callbacks import DeviceStatsMonitor
 
 # Adding mlflow
 import mlflow.pytorch
@@ -88,6 +90,9 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
 
     # Callbacks
     callbacks = []
+    device_stats = DeviceStatsMonitor()
+
+    callbacks.append(device_stats)
 
 
     # Profilers
