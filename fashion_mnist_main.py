@@ -89,6 +89,8 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
     loggers.append(tb_logger)
 
     # Callbacks
+    # Device Stats Monitor is a bit hard to understand right now
+    # April 2022 - looking to v1.7 to address
     callbacks = []
     device_stats = DeviceStatsMonitor()
 

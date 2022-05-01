@@ -32,3 +32,8 @@ Dataset structure is important to make sure we make optimal use of GPUs.
 - webdataset is a designed to batch up the dataset into tarfiles, one batch per tarfile
   - How do we make it adaptable with to different batchsizes
 - tar format may not make for good exploration of data with other tools so we need to have both raw data and batched data for training?  
+
+## Extras to do
+
+- pin_memory for GPU 
+- prefetch_factor

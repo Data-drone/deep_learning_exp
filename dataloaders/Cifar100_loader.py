@@ -1,9 +1,15 @@
 from torch.utils.data import DataLoader
 from pytorch_lightning.core.datamodule import LightningDataModule
 from torchvision.datasets import CIFAR100
+from typing import Any, Callable, Optional, Sequence, Union
 
 class CIFAR100DataModule(LightningDataModule):
-    def __init__(self, data_dir: str = "s3a://datasets/cifar100",
+
+    name = 'cifar100'
+    dims = {3, 32, 32}
+
+    def __init__(self, 
+                data_dir: Optional[str] = None,
                 batch_size: int = 32):
         super().__init__()
         self.data_dir = data_dir
