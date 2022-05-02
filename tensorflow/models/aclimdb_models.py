@@ -5,11 +5,10 @@
 
 # COMMAND ----------
 
-import tensorflow as tf
-import tensorflow_hub as hub
 
 def build_classifier_model(tfhub_handle_preprocess, tfhub_handle_encoder):
-  
+  import tensorflow as tf
+  import tensorflow_hub as hub
   
   text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
   preprocessing_layer = hub.KerasLayer(tfhub_handle_preprocess, name='preprocessing')
