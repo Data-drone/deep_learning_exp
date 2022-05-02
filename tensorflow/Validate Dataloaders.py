@@ -20,7 +20,13 @@
 # COMMAND ----------
 
 dataset_dir = '/dbfs/user/brian.law/data/'
-train_ds, val_ds, size_train, size_val = get_raw_dataset(dataset_dir)
+train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dataset_dir)
+
+# COMMAND ----------
+
+# for horovod can do this
+# num_shards for the total and index for current process
+# train_ds.shard(num_shards=2, index=0)
 
 # COMMAND ----------
 
@@ -48,7 +54,7 @@ dbutils.fs.rm(cache_path, True)
 dbutils.fs.mkdirs(cache_path)
 batch_size = 32
 
-train_ds_pt, val_ds_pt, size_train_pt, size_val_pt = get_petastorm_dataset(cache_dir)
+train_ds_pt, val_ds_pt, test_ds_pt, size_train_pt, size_val_pt, size_test_pt = get_petastorm_dataset(cache_dir)
 
 # COMMAND ----------
 

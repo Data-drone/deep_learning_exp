@@ -63,7 +63,7 @@ def get_petastorm_dataset(cache_dir: str, partitions: int=4):
 
 # COMMAND ----------
 
-def get_raw_dataset(object_store_dir:str, batch_size:int=32):
+def get_raw_dataset(object_store_dir:str, batch_size:int=32, shards:int=1, rank:int=0):
   
   """
   Gets the raw unzipped datafiles
@@ -73,6 +73,8 @@ def get_raw_dataset(object_store_dir:str, batch_size:int=32):
     object_store_dir: File path for to where the dataset will be eg:
                       '/dbfs/user/{uesrname}/data/'
     batch_size: Batch size for the tf datasets
+    shards: Total number of shards default is 1 needed for Horovod
+    rank: Current shard number for this batch default 0
   
   """
   
@@ -99,7 +101,7 @@ def get_raw_dataset(object_store_dir:str, batch_size:int=32):
     seed=seed)
   
   class_names = raw_train_ds.class_names
-  train_ds = raw_train_ds.cache().prefetch(buffer_size=AUTOTUNE)
+  train_ds = raw_train_ds.shard(num_shards=shards, index=rank).cache().prefetch(buffer_size=AUTOTUNE)
   
   val_ds = tf.keras.utils.text_dataset_from_directory(
     os.path.join(unzip_dir, 'train'),
@@ -108,13 +110,13 @@ def get_raw_dataset(object_store_dir:str, batch_size:int=32):
     subset='validation',
     seed=seed)
 
-  val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
+  val_ds = val_ds.shard(num_shards=shards, index=rank).cache().prefetch(buffer_size=AUTOTUNE)
   
   test_ds = tf.keras.utils.text_dataset_from_directory(
     os.path.join(unzip_dir, 'test'),
     batch_size=batch_size)
 
-  test_ds = test_ds.cache().prefetch(buffer_size=AUTOTUNE)
+  test_ds = test_ds.shard(num_shards=shards, index=rank).cache().prefetch(buffer_size=AUTOTUNE)
   
   size_train = len(train_ds) * batch_size
   size_val = len(val_ds) * batch_size
