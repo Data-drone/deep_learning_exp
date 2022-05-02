@@ -5,6 +5,8 @@
 # MAGIC 
 # MAGIC - based on: https://www.tensorflow.org/text/tutorials/classify_text_with_bert
 # MAGIC - Sentiment Analysis Model
+# MAGIC 
+# MAGIC ### Multi GPU based on Native TF
 
 # COMMAND ----------
 
@@ -23,7 +25,6 @@
 # COMMAND ----------
 
 import os
-import shutil
 
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -31,7 +32,6 @@ import tensorflow_text as text
 from official.nlp import optimization  # to create AdamW optimizer
 
 import matplotlib.pyplot as plt
-
 tf.get_logger().setLevel('DEBUG')
 
 # COMMAND ----------
@@ -83,6 +83,22 @@ train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dat
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ### Define Parallel Strategy
+
+# COMMAND ----------
+
+### new code to add in parallel trainer
+
+# If the list of devices is not specified in
+# `tf.distribute.MirroredStrategy` constructor, they will be auto-detected.
+strategy = tf.distribute.MirroredStrategy()
+
+print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ### Loading Pretrained Model
 # MAGIC 
 # MAGIC - Can choose any of the models in map_name_to_handle as long as it first in mem (this is single GPU example)
@@ -94,25 +110,8 @@ train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dat
 
 # COMMAND ----------
 
-classifier_model = build_tf_raw_model()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ### Validating Model Works
-
-# COMMAND ----------
-
-text_test = ['this is such an amazing movie!']
-
-bert_raw_result = classifier_model(tf.constant(text_test))
-print(tf.sigmoid(bert_raw_result))
-
-# COMMAND ----------
-
-# requires pydot and graphviz - installed on cluster level
-tf.keras.utils.plot_model(classifier_model)
+with strategy.scope():
+  classifier_model = build_tf_raw_model()
 
 # COMMAND ----------
 
@@ -129,9 +128,11 @@ import mlflow
 # COMMAND ----------
 
 # Defining Optimizer
+## Adjusting to suit parallel
 
-epochs = 3
-batch_size = 128
+epochs = 4
+batch_size_per_replica = 128
+batch_size = batch_size_per_replica * strategy.num_replicas_in_sync
 
 steps_per_epoch = size_train // batch_size 
 num_train_steps = steps_per_epoch * epochs
@@ -142,15 +143,16 @@ init_lr = 3e-5
 # COMMAND ----------
 
 # Compile model
-loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-metrics = tf.metrics.BinaryAccuracy()
+with strategy.scope():
+  loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+  metrics = tf.metrics.BinaryAccuracy()
 
-optimizer = optimization.create_optimizer(init_lr=init_lr,
+  optimizer = optimization.create_optimizer(init_lr=init_lr,
                                           num_train_steps=num_train_steps,
                                           num_warmup_steps=num_warmup_steps,
                                           optimizer_type='adamw')
 
-classifier_model.compile(optimizer=optimizer,
+  classifier_model.compile(optimizer=optimizer,
                          loss=loss,
                          metrics=metrics)
 
@@ -227,20 +229,20 @@ with mlflow.start_run(experiment_id='224704298431727') as run:
   dataset_name = 'imdb'
   saved_model_path = './{}_bert'.format(dataset_name.replace('/', '_'))
 
-  classifier_model.save(saved_model_path, include_optimizer=False)
+  #classifier_model.save(saved_model_path, include_optimizer=False)
   
   # try manually speccing some things in log model
   # tf_signature_def_key was from trial and error seems like
   # meta_graph_tags is none by design 
   # classifier_model automatically sets this
   
-  mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
-                            tf_meta_graph_tags=None,
-                            tf_signature_def_key='serving_default', # default from tf official model
-                            artifact_path='model', # model is default for mlflow in order to link to UI
-                            signature=signature,
-                            input_example=input_examples,
-                            extra_pip_requirements=extra_reqs)
+  #mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
+  #                          tf_meta_graph_tags=None,
+  #                          tf_signature_def_key='serving_default', # default from tf official model
+  #                          artifact_path='model', # model is default for mlflow in order to link to UI
+  #                          signature=signature,
+  #                          input_example=input_examples,
+  #                          extra_pip_requirements=extra_reqs)
 
   fig = accuracy_and_loss_plots(history)
   mlflow.log_figure(fig, 'training_perf.png')
@@ -268,7 +270,7 @@ mlflow.end_run()
 # COMMAND ----------
 
 ### clean up
-clean_up = False
+clean_up = True
 
 if clean_up:
   from numba import cuda
@@ -276,6 +278,12 @@ if clean_up:
   cuda.select_device(0)
   cuda.close()
   
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC 
+# MAGIC nvidia-smi
 
 # COMMAND ----------
 

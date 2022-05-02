@@ -44,16 +44,22 @@ def get_petastorm_dataset(cache_dir: str, partitions: int=4):
   train_frame = spark.sql("select value, `label` \
                         from brian_petastorm_datasets.aclImdb_label \
                         where `set` = 'train'")
+  
+  df_test = spark.sql("select value, `label` \
+                        from brian_petastorm_datasets.aclImdb_label \
+                        where `set` = 'test'")
 
   df_train, df_val = train_frame.randomSplit([0.8,0.2], seed=12345)
 
   df_train.repartition(partitions)
   df_val.repartition(partitions)
+  df_test.repartition(partitions)
 
   size_train = df_train.count()
   size_val = df_val.count()
+  size_test = df_test.count()
   
-  return df_train, df_val, size_train, size_val
+  return df_train, df_val, df_test, size_train, size_val, size_test
 
 # COMMAND ----------
 
@@ -104,8 +110,15 @@ def get_raw_dataset(object_store_dir:str, batch_size:int=32):
 
   val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
   
+  test_ds = tf.keras.utils.text_dataset_from_directory(
+    os.path.join(unzip_dir, 'test'),
+    batch_size=batch_size)
+
+  test_ds = test_ds.cache().prefetch(buffer_size=AUTOTUNE)
+  
   size_train = len(train_ds) * batch_size
   size_val = len(val_ds) * batch_size
+  size_test = len(test_ds) * batch_size
   
   # df_train, df_val, size_train, size_val
-  return train_ds, val_ds, size_train, size_val
+  return train_ds, val_ds, test_ds, size_train, size_val, size_test
