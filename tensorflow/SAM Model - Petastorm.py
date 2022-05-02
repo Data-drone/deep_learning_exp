@@ -209,15 +209,7 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 # COMMAND ----------
 
-debug_dir = os.path.join(log_dir, 'debug')
-
-tf.debugging.experimental.enable_dump_debug_info(
-    debug_dir+'/',
-    tensor_debug_mode="FULL_HEALTH",
-    circular_buffer_size=-1)
-
-# COMMAND ----------
-
+import datetime
 # Main training Loop
 from petastorm.spark import make_spark_converter
 
@@ -225,8 +217,17 @@ with mlflow.start_run(experiment_id='224704298431727') as run:
   
   mlflow.tensorflow.autolog(log_models=False)
   
+  ## Adding Extra logging
+  run_log_dir = os.path.join(log_dir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+  #debug_dir = os.path.join(run_log_dir, 'debug')
+
+  tf.debugging.experimental.enable_dump_debug_info(
+    run_log_dir,
+    tensor_debug_mode="FULL_HEALTH",
+    circular_buffer_size=-1)
+  
   # didn't seem to work?
-  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=run_log_dir, histogram_freq=1, update_freq=1)
   
   ### Extra code for Petastorm
   converter_train = make_spark_converter(train_ds)
@@ -241,7 +242,7 @@ with mlflow.start_run(experiment_id='224704298431727') as run:
     train_iter = train_pt_ds.map(lambda x: (x[0], x[1]))
     val_iter = val_pt_ds.map(lambda x: (x[0], x[1]))
   
-  ### End Extra Code for Petastorm
+    ### End Extra Code for Petastorm
   
     history = classifier_model.fit(x=train_iter,
                                  validation_data=val_iter,
@@ -255,20 +256,20 @@ with mlflow.start_run(experiment_id='224704298431727') as run:
   dataset_name = 'imdb'
   saved_model_path = './{}_bert'.format(dataset_name.replace('/', '_'))
 
-  classifier_model.save(saved_model_path, include_optimizer=False)
+  #classifier_model.save(saved_model_path, include_optimizer=False)
   
   # try manually speccing some things in log model
   # tf_signature_def_key was from trial and error seems like
   # meta_graph_tags is none by design 
   # classifier_model automatically sets this
   
-  mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
-                            tf_meta_graph_tags=None,
-                            tf_signature_def_key='serving_default', # default from tf official model
-                            artifact_path='model', # model is default for mlflow in order to link to UI
-                            signature=signature,
-                            input_example=input_examples,
-                            extra_pip_requirements=extra_reqs)
+  #mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
+  #                          tf_meta_graph_tags=None,
+  #                          tf_signature_def_key='serving_default', # default from tf official model
+  #                          artifact_path='model', # model is default for mlflow in order to link to UI
+  #                          signature=signature,
+  #                          input_example=input_examples,
+  #                          extra_pip_requirements=extra_reqs)
 
   fig = accuracy_and_loss_plots(history)
   mlflow.log_figure(fig, 'training_perf.png')
@@ -287,10 +288,15 @@ with mlflow.start_run(experiment_id='224704298431727') as run:
 converter_test = make_spark_converter(test_ds)
 
 with converter_test.make_tf_dataset(batch_size=batch_size, workers_count=10) as test_pt_ds:
-  loss, accuracy = classifier_model.evaluate(test_ds)
+  
+  test_iter = test_pt_ds.map(lambda x: (x[0], x[1]))
+  
+  # Note if the steps isn't defined then it will loop infinitely
+  loss, accuracy = classifier_model.evaluate(test_iter,
+                                            steps=size_test // batch_size)
 
-print(f'Loss: {loss}')
-print(f'Accuracy: {accuracy}')
+  print(f'Loss: {loss}')
+  print(f'Accuracy: {accuracy}')
 
 # COMMAND ----------
 

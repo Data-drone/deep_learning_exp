@@ -32,7 +32,7 @@ import tensorflow_text as text
 from official.nlp import optimization  # to create AdamW optimizer
 
 import matplotlib.pyplot as plt
-tf.get_logger().setLevel('DEBUG')
+tf.get_logger().setLevel('ERROR')
 
 # COMMAND ----------
 
@@ -69,20 +69,6 @@ dataset_dir = '/dbfs/user/brian.law/data/'
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ### Dataset Loading
-
-# COMMAND ----------
-
-# MAGIC %run ./dataloaders/aclimdb_dataloaders
-
-# COMMAND ----------
-
-train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dataset_dir)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
 # MAGIC ### Define Parallel Strategy
 
 # COMMAND ----------
@@ -91,9 +77,37 @@ train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dat
 
 # If the list of devices is not specified in
 # `tf.distribute.MirroredStrategy` constructor, they will be auto-detected.
+
+# This has this issue: https://github.com/tensorflow/tensorflow/issues/53160
+# https://github.com/tensorflow/tensorflow/issues/41898
+# https://github.com/tensorflow/tensorflow/issues/39545
 strategy = tf.distribute.MirroredStrategy()
 
+# Workaround discussed on github seems to take forever to startup
+#strategy = tf.distribute.MultiWorkerMirroredStrategy()
+
 print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+# COMMAND ----------
+
+epochs = 4
+batch_size_per_replica = 128
+batch_size = batch_size_per_replica * strategy.num_replicas_in_sync
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ### Dataset Loading
+
+# COMMAND ----------
+
+# MAGIC %run ./dataloaders/aclimdb_dataloaders
+
+# COMMAND ----------
+
+train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dataset_dir, batch_size=batch_size)
 
 # COMMAND ----------
 
@@ -129,10 +143,6 @@ import mlflow
 
 # Defining Optimizer
 ## Adjusting to suit parallel
-
-epochs = 4
-batch_size_per_replica = 128
-batch_size = batch_size_per_replica * strategy.num_replicas_in_sync
 
 steps_per_epoch = size_train // batch_size 
 num_train_steps = steps_per_epoch * epochs
@@ -201,48 +211,50 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 # COMMAND ----------
 
-debug_dir = os.path.join(log_dir, 'debug')
-
-tf.debugging.experimental.enable_dump_debug_info(
-    debug_dir+'/',
-    tensor_debug_mode="FULL_HEALTH",
-    circular_buffer_size=-1)
-
-# COMMAND ----------
-
 # Main training Loop
+import datetime
 
 with mlflow.start_run(experiment_id='224704298431727') as run:
   
   mlflow.tensorflow.autolog(log_models=False)
   
+  ## Adding Extra logging
+  run_log_dir = os.path.join(log_dir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+  print('Log Dir is: {0}'.format(run_log_dir))
+  #debug_dir = os.path.join(run_log_dir, 'debug')
+
+  tf.debugging.experimental.enable_dump_debug_info(
+    run_log_dir,
+    tensor_debug_mode="FULL_HEALTH",
+    circular_buffer_size=-1)
+  
   # didn't seem to work?
-  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=run_log_dir, histogram_freq=1, update_freq=1)
   
   history = classifier_model.fit(x=train_ds,
                                  validation_data=val_ds,
                                  epochs=epochs,
-                                 batch_size=batch_size,
+                                 #batch_size=batch_size,
                                  callbacks=[tensorboard_callback])
   
   # we need to first save out the model to a temp folder then we can log it
   dataset_name = 'imdb'
   saved_model_path = './{}_bert'.format(dataset_name.replace('/', '_'))
 
-  #classifier_model.save(saved_model_path, include_optimizer=False)
+  classifier_model.save(saved_model_path, include_optimizer=False)
   
   # try manually speccing some things in log model
   # tf_signature_def_key was from trial and error seems like
   # meta_graph_tags is none by design 
   # classifier_model automatically sets this
   
-  #mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
-  #                          tf_meta_graph_tags=None,
-  #                          tf_signature_def_key='serving_default', # default from tf official model
-  #                          artifact_path='model', # model is default for mlflow in order to link to UI
-  #                          signature=signature,
-  #                          input_example=input_examples,
-  #                          extra_pip_requirements=extra_reqs)
+  mlflow.tensorflow.log_model(tf_saved_model_dir=saved_model_path,
+                            tf_meta_graph_tags=None,
+                            tf_signature_def_key='serving_default', # default from tf official model
+                            artifact_path='model', # model is default for mlflow in order to link to UI
+                            signature=signature,
+                            input_example=input_examples,
+                            extra_pip_requirements=extra_reqs)
 
   fig = accuracy_and_loss_plots(history)
   mlflow.log_figure(fig, 'training_perf.png')

@@ -23,7 +23,6 @@
 # COMMAND ----------
 
 import os
-import shutil
 
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -199,23 +198,24 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 # COMMAND ----------
 
-debug_dir = os.path.join(log_dir, 'debug')
-
-tf.debugging.experimental.enable_dump_debug_info(
-    debug_dir+'/',
-    tensor_debug_mode="FULL_HEALTH",
-    circular_buffer_size=-1)
-
-# COMMAND ----------
-
 # Main training Loop
 
 with mlflow.start_run(experiment_id='224704298431727') as run:
   
   mlflow.tensorflow.autolog(log_models=False)
   
+  ## Adding Extra logging
+  run_log_dir = os.path.join(log_dir, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+  print('Log Dir is: {0}'.format(run_log_dir))
+  #debug_dir = os.path.join(run_log_dir, 'debug')
+
+  tf.debugging.experimental.enable_dump_debug_info(
+    run_log_dir,
+    tensor_debug_mode="FULL_HEALTH",
+    circular_buffer_size=-1)
+  
   # didn't seem to work?
-  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+  tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=run_log_dir, histogram_freq=1, update_freq=1)
   
   history = classifier_model.fit(x=train_ds,
                                  validation_data=val_ds,
