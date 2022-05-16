@@ -46,9 +46,11 @@ tf.get_logger().setLevel('DEBUG')
 databricks_mlflow_host = 'https://e2-demo-tokyo.cloud.databricks.com'
 
 ## This doesn't always work
-databricks_notebook_token = dbutils.notebook.entry_point.getDbutils().getContext().apiToken().get()
+#databricks_notebook_token = dbutils.notebook.entry_point.getDbutils().getContext().apiToken().get()
+databricks_notebook_token = dbutils.secrets.get(scope="scaling_dl", key="host_workspace")
 
 ## Run Name
+mlflow_experiment_name = 224704298431727
 mlflow_run_name = 'Horovod Petastorm Cluster Run'
 
 ## This will be used to make sure the tf logs get separated out properly
@@ -68,7 +70,7 @@ cache_dir = 'file://' + local_cache_path
 
 ## Cluster Config
 single_node = False
-total_num_gpus = 4
+total_num_gpus = 2
 petastorm_workers = 10 
 
 ## Model Settings
@@ -125,7 +127,7 @@ dbutils.fs.mkdirs(local_cache_path)
 
 # COMMAND ----------
 
-train_ds, val_ds, test_ds, size_train, size_val, size_test = get_petastorm_dataset(cache_dir=cache_dir, partitions=4)
+train_ds, val_ds, test_ds, size_train, size_val, size_test = get_petastorm_dataset(cache_dir=cache_dir, partitions=total_num_gpus*4)
 
 # COMMAND ----------
 
@@ -154,17 +156,19 @@ peta_val_ds = make_spark_converter(val_ds)
 
 # COMMAND ----------
 
-def train_hvd(run_key:str ):
+def train_hvd(mlflow_run_key:str):
   
   import os
   import horovod.tensorflow as hvd
   import tensorflow as tf
   import mlflow
+  import tensorflow_text
+  from math import floor
   
   ## Setup MLFlow for Horovod
   os.environ['DATABRICKS_HOST'] = databricks_mlflow_host
   os.environ['DATABRICKS_TOKEN'] = databricks_notebook_token
-  os.environ['MLFLOW_RUN_ID'] = run_key
+  os.environ['MLFLOW_RUN_ID'] = mlflow_run_key
   
   hvd.init()
   
@@ -178,11 +182,6 @@ def train_hvd(run_key:str ):
   
   mlflow.tensorflow.autolog(log_models=False)
   
-  train_ds, val_ds, test_ds, size_train, size_val, size_test = get_raw_dataset(dataset_dir,
-                                                                                 batch_size=1, 
-                                                                                 shards=hvd.size(), 
-                                                                                 rank=hvd.rank())
-
   classifier_model = build_tf_raw_model()
 
   # These are specifically needed for the 
@@ -207,7 +206,7 @@ def train_hvd(run_key:str ):
                          loss=loss,
                          metrics=metrics)
   
-  run_log = os.path.join(logging_path, tf_log_prefix+run_key)
+  run_log = os.path.join(log_dir, tf_log_prefix+mlflow_run_key)
   
   callbacks = [
     hvd.keras.callbacks.BroadcastGlobalVariablesCallback(0),
@@ -215,10 +214,18 @@ def train_hvd(run_key:str ):
   
   
   
-  with peta_train_ds.make_tf_dataset(batch_size=batch_size_per_gpu, workers_count=petastorm_workers,
+  with peta_train_ds.make_tf_dataset(batch_size=batch_size, workers_count=petastorm_workers,
                                     cur_shard=hvd.rank(), shard_count=hvd.size()) as trainset, \
-    peta_val_ds.make_tf_dataset(batch_size=batch_size_per_gpu, workers_count=petastorm_workers,
+    peta_val_ds.make_tf_dataset(batch_size=batch_size, workers_count=petastorm_workers,
                                     cur_shard=hvd.rank(), shard_count=hvd.size()) as valset: 
+  
+    
+    # Fix up the formatting for the dataloaders
+    trainset = trainset.map(lambda x: (x[0], x[1]))
+    valset = valset.map(lambda x: (x[0], x[1]))
+  
+    hvd_steps_per_epoch = len(peta_train_ds) // global_batch_size
+    val_steps = len(peta_val_ds) // global_batch_size
   
     if hvd.rank() == 0:
       with mlflow.start_run() as run:
@@ -263,13 +270,13 @@ def train_hvd(run_key:str ):
         
   
       ## If steps are defined that it will crash
-        history = classifier_model.fit(x=train_ds, 
-                       validation_data=val_ds,
-                       validation_steps=floor(size_val / batch_size),
-                       steps_per_epoch=steps_per_epoch,          
+        history = classifier_model.fit(x=trainset, 
+                       validation_data=valset,
+                       validation_steps=val_steps,
+                       steps_per_epoch=hvd_steps_per_epoch,          
                        epochs=epochs,
                        callbacks=callbacks,
-                       verbose=2, workers=2)
+                       verbose=1, workers=2)
       
         dataset_name = 'imdb'
         
@@ -288,10 +295,33 @@ def train_hvd(run_key:str ):
                             extra_pip_requirements=extra_reqs)
     
     else:
-      classifier_model.fit(x=train_ds, 
-                       validation_data=val_ds,
-                       validation_steps=floor(size_val / batch_size),
-                       steps_per_epoch=steps_per_epoch,          
+      classifier_model.fit(x=trainset, 
+                       validation_data=valset,
+                       validation_steps=val_steps,
+                       steps_per_epoch=hvd_steps_per_epoch,          
                        epochs=epochs,
                        callbacks=callbacks,
-                       verbose=2, workers=2)
+                       verbose=1, workers=2)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Horovod Execution
+
+# COMMAND ----------
+
+from sparkdl import HorovodRunner
+
+import mlflow
+
+mlflow.start_run(experiment_id=mlflow_experiment_name, run_name=mlflow_run_name)
+run_id = mlflow.active_run().info.run_id
+mlflow.end_run()
+
+hr = HorovodRunner(np=hr_setting, driver_log_verbosity='all')
+hr.run(train_hvd, mlflow_run_key=run_id)
+
+# COMMAND ----------
+
+
