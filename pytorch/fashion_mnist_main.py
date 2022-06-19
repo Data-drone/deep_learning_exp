@@ -131,7 +131,8 @@ def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node
         logger=loggers,
         strategy=strat,
         profiler=profiler,
-        default_root_dir=root_dir #otherwise pytorch lightning will write to local
+        default_root_dir=root_dir, #otherwise pytorch lightning will write to local
+        auto_lr_find=True
         #profiler=profiler # for tensorboard profiler
     )
 
