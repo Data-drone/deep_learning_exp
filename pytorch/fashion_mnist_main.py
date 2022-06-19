@@ -116,7 +116,8 @@ def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node
             schedule=torch.profiler.schedule(
             wait=1,
             warmup=1,
-            active=2),
+            active=3,
+            repeat=2),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(os.path.join(log_dir,run_name), worker_name='worker'+str(node_id)),
         record_shapes=True,
         profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
@@ -132,7 +133,6 @@ def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node
         strategy=strat,
         profiler=profiler,
         default_root_dir=root_dir, #otherwise pytorch lightning will write to local
-        auto_lr_find=True,
         *args,
         **kwargs
         #profiler=profiler # for tensorboard profiler
@@ -144,7 +144,7 @@ def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node
 
 def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
                 num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
-                run_name:str=None, experiment_id:int=None):
+                run_name:str=None, experiment_id:int=None, *args, **kwargs):
 
     """
     Main training Loop
@@ -163,7 +163,7 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
     """
 
     trainer = build_trainer(num_gpus, root_dir, epoch, strat, node_id,
-                run_name)
+                run_name, *args, **kwargs)
 
     
     # Pass the datamodule as arg to trainer.fit to override model hooks :)
