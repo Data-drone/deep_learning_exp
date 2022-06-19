@@ -38,7 +38,8 @@ import horovod.torch as hvd
 
 
 def main_hvd(mlflow_db_host:str, mlflow_db_token:str, 
-            data_module:Type[LightningDataModule], model:Type[LightningModule], experiment_log_dir, epochs):
+            data_module:Type[LightningDataModule], model:Type[LightningModule], 
+            root_dir:str, epochs: int, run_name:str, experiment_id:int):
 
     """
     
@@ -60,7 +61,7 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
     os.environ['DATABRICKS_TOKEN'] = mlflow_db_token
 
     return main_train(data_module=data_module, model=model, strat='horovod', num_gpus=1, node_id=hvd.rank(), 
-                    root_dir=experiment_log_dir, epoch=epochs)
+                    root_dir=root_dir, epoch=epochs, run_name=run_name, experiment_id=experiment_id)
 
 
 def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
