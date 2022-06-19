@@ -63,12 +63,12 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
                     root_dir=experiment_log_dir, epoch=epochs)
 
 
-def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
-                num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
-                run_name:str=None, experiment_id:int=None):
-
+def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
+                run_name:str=None):
+    
     """
-    Main training Loop
+    We want to build and return the training function first so that we can do some lr_tune
+    and also auto_batch_size determinations
 
     Args:
         data_dir: data module to fit in
@@ -93,7 +93,7 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
 
     # Loggers
     loggers = []
-    tb_logger = pl.loggers.tensorboard.TensorBoardLogger(save_dir=log_dir, name=RUN_NAME,log_graph=True)
+    tb_logger = pl.loggers.tensorboard.TensorBoardLogger(save_dir=log_dir, name=run_name,log_graph=True)
 
     loggers.append(tb_logger)
 
@@ -116,7 +116,7 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
             wait=1,
             warmup=1,
             active=2),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(os.path.join(log_dir,RUN_NAME), worker_name='worker0'),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(os.path.join(log_dir,run_name), worker_name='worker'+str(node_id)),
         record_shapes=True,
         profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
         with_stack=True)
@@ -133,9 +133,38 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
         default_root_dir=root_dir #otherwise pytorch lightning will write to local
         #profiler=profiler # for tensorboard profiler
     )
+
+
+    return trainer
+
+
+def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule], 
+                num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
+                run_name:str=None, experiment_id:int=None):
+
+    """
+    Main training Loop
+
+    Args:
+        data_dir: data module to fit in
+        model: model to train on
+        num_gpus: number of gpus to train on
+        root_dir: 
+        epoch
+        strat
+        node_id: the number of the node
+        run_name:
+        experiment_id:
+    
+    """
+
+    trainer = build_trainer(num_gpus, root_dir, epoch, strat, node_id,
+                run_name)
+
+    
     # Pass the datamodule as arg to trainer.fit to override model hooks :)
     if node_id == 0:
-        with mlflow.start_run(experiment_id=experiment_id, run_name=RUN_NAME) as run:
+        with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
             
             mlflow.log_param("model", model.model_tag)
 
