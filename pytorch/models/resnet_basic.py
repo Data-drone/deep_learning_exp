@@ -18,11 +18,12 @@ class ResnetClassification(pl.LightningModule):
         self.height = height
         self.num_classes = num_classes
         self.learning_rate = learning_rate
+        self.loss = nn.CrossEntropyLoss()
 
         
         self.model_tag = 'resnet'
 
-        self.model = models.resnet18(pretrained=pretrain)
+        self.model = models.resnet34(pretrained=pretrain)
 
         ### TRANSFER LEARNING STEPS
         # change the final layer
@@ -42,14 +43,14 @@ class ResnetClassification(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = F.nll_loss(logits, y)
+        loss = self.loss(logits, y)
         return loss
 
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = F.nll_loss(logits, y)
+        loss = self.loss(logits, y)
         preds = torch.argmax(logits, dim=1)
         acc = accuracy(preds, y)
         self.log("val_loss", loss, prog_bar=True)
