@@ -31,14 +31,10 @@ import horovod.torch as hvd
 #EPOCHS = 5
 #BATCH_SIZE = 256
 # this will just count the driver I believe
-AVAIL_GPUS = max(1, torch.cuda.device_count()) 
 
-root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
-#data_path = '/dbfs/user/brian.law/data/fashionMNIST'
-#experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
-RUN_NAME = 'pl_test'
-experiment_id = 4388967990215332
-run_name = 'basic_fashionMNIST'
+### We need to move these out
+#AVAIL_GPUS = max(1, torch.cuda.device_count()) 
+
 
 
 def main_hvd(mlflow_db_host:str, mlflow_db_token:str, 
@@ -48,7 +44,11 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
     
     Args:
         mlflow_db_host: 
-        mlflow_db_token: 
+        mlflow_db_token:
+        data_module:
+        model:
+        experiment_log_dir
+        epochs: 
     
     """
 
@@ -71,8 +71,11 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
 
     Args:
         data_dir: data module to fit in
-        strat: training strategy for parallel
+        model: model to train on
         num_gpus: number of gpus to train on
+        experiment_log_dir
+        epoch
+        strat
         node_id: the number of the node
     
     """
@@ -126,7 +129,7 @@ def main_train(data_module:Type[LightningDataModule], model:Type[LightningModule
     )
     # Pass the datamodule as arg to trainer.fit to override model hooks :)
     if node_id == 0:
-        with mlflow.start_run(experiment_id=experiment_id, run_name=run_name) as run:
+        with mlflow.start_run(experiment_id=experiment_id, run_name=RUN_NAME) as run:
             
             mlflow.log_param("model", model.model_tag)
 
