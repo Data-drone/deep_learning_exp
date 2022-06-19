@@ -10,7 +10,7 @@
 # COMMAND ----------
 
 import horovod.torch as hvd
-from fashion_mnist_main import main_hvd
+from fashion_mnist_main import main_hvd, main_train
 import os
 
 # COMMAND ----------
@@ -58,7 +58,6 @@ log_dir = '/dbfs/user/brian.law/pl_logs'
 root_dir = '/dbfs/user/brian.law/lightning_fashion_mnist/checkpoints'
 #data_path = '/dbfs/user/brian.law/data/fashionMNIST'
 #experiment_log_dir = '/dbfs/user/brian.law/tboard_test/logs'
-RUN_NAME = 'pl_test'
 #run_name = 'basic_fashionMNIST'
 
 
@@ -70,7 +69,33 @@ RUN_NAME = 'pl_test'
 
 # COMMAND ----------
 
+from pl_bolts.datamodules import FashionMNISTDataModule, CIFAR10DataModule
+from models.resnet_basic import ResnetClassification
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Single Node Single GPU
+
+# COMMAND ----------
+
+RUN_NAME = 'pl_test'
+batch_size = 512
+epochs=50
+num_dataloader_workers = 4
+
+data_module = FashionMNISTDataModule(data_dir=fashion_data_path, 
+                                        num_workers=num_dataloader_workers, 
+                                        batch_size=batch_size)
+
+model = ResnetClassification(*data_module.size(), data_module.num_classes, pretrain=False)
+
+trainer = main_train(
+    data_module=data_module, 
+    model=model, 
+    num_gpus=1, 
+    experiment_log_dir=log_dir, 
+    epoch=epochs
+)
 
 # COMMAND ----------
