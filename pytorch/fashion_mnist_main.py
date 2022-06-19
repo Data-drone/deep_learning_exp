@@ -65,7 +65,7 @@ def main_hvd(mlflow_db_host:str, mlflow_db_token:str,
 
 
 def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node_id:int=0,
-                run_name:str=None):
+                run_name:str=None, *args, **kwargs):
     
     """
     We want to build and return the training function first so that we can do some lr_tune
@@ -132,7 +132,9 @@ def build_trainer(num_gpus:int, root_dir:str, epoch:int=3, strat:str='ddp', node
         strategy=strat,
         profiler=profiler,
         default_root_dir=root_dir, #otherwise pytorch lightning will write to local
-        auto_lr_find=True
+        auto_lr_find=True,
+        *args,
+        **kwargs
         #profiler=profiler # for tensorboard profiler
     )
 
