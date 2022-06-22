@@ -23,10 +23,10 @@ class CIFAR100DataModule(LightningDataModule):
     def setup(self):
         self.cifar100_test = CIFAR100(root=self.data_dir, 
                                        train=False, download=False,
-                                       transform=self.default_transform)
+                                       transform=self.default_transforms)
         self.cifar100_train = CIFAR100(root=self.data_dir, 
                                        train=True, download=False,
-                                       transform=self.default_transform)
+                                       transform=self.default_transforms)
         
     def default_transforms(self) -> Callable:
         cf100_transforms = transform_lib.Compose([transform_lib.ToTensor()])
