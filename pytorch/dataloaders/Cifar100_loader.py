@@ -2,6 +2,7 @@ from torch.utils.data import DataLoader
 from pytorch_lightning.core.datamodule import LightningDataModule
 from torchvision.datasets import CIFAR100
 from typing import Any, Callable, Optional, Sequence, Union
+from torchvision import transforms as transform_lib
 
 class CIFAR100DataModule(LightningDataModule):
 
@@ -21,11 +22,16 @@ class CIFAR100DataModule(LightningDataModule):
     
     def setup(self):
         self.cifar100_test = CIFAR100(root=self.data_dir, 
-                                       train=False, download=False)
+                                       train=False, download=False,
+                                       transform=self.default_transform)
         self.cifar100_train = CIFAR100(root=self.data_dir, 
-                                       train=True, download=False)
+                                       train=True, download=False,
+                                       transform=self.default_transform)
         
-        
+    def default_transforms(self) -> Callable:
+        cf100_transforms = transform_lib.Compose([transform_lib.ToTensor()])
+        return cf100_transforms
+
     def train_dataloader(self):
         return DataLoader(
             self.cifar100_train,
